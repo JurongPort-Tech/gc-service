@@ -1,0 +1,39 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- use the font -->
+    <style>
+        body {
+            font-family: 'Calibri' font-size: 14pt;
+            background-color: #f4f4f4;
+        }
+        
+        ;
+        div {
+            display: block;
+        }
+    </style>
+</head>
+
+<body style="margin: 0; padding: 0;">
+<br>
+
+<p><b>BTR: </b>  <btr> </p>
+<p><b>ETB: </b>  <etb> </p>
+<p><b>ETU: </b>  <etu> </p>
+<p><b>Agent: </b>  <agent> </p>
+<p><b>Document Type(s): </b> <docs> </p>
+<p><b>Updated By: </b>  <updatedBy> </p>
+<p><b>Remarks: </b>  <remarks> </p>
+
+</br>
+<br><p>For more information please proceed to <a href="<jpomurl>"> Modernised JP Online </a> to view the details under "General Cargo -> Cargo Document Upload" module.</p></br>
+</body>
+</html>
+
+
+

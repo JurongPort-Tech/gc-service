@@ -1,0 +1,38 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- use the font -->
+    <style>
+      body {
+        font-family: 'Calibri'font-size: 14pt;
+        background-color: #f4f4f4;
+      }
+
+      ;
+
+      div {
+        display: block;
+      }
+    </style>
+</head>
+
+<body style="margin: 0; padding: 0;">
+		Dear Sir/Madam,
+    		<br>
+        	<br>Please be informed a query has been raised on the request raised for review OSD/late arrival.
+        	<br>
+        	<br>Vessel/Voyage : <out voyage no>
+        	<br>
+        	<br>Query on <queryOption>
+        	<br>
+        	<br>Query remarks: <queryRemarks>
+        	<br>
+        	<br>Please update the request based on the remarks. 
+        	<br>Thank you
+        	<br> <b> Note: This is a system-generated email. </b>
+</body>
+
+</html>

@@ -1,0 +1,102 @@
+package sg.com.jp.generalcargo.filter;
+
+import java.io.IOException;
+
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import org.json.JSONObject;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+
+import sg.com.jp.generalcargo.domain.CustomRequest;
+import sg.com.jp.generalcargo.util.JWTUtils;
+
+@Component
+public class GenericFilter implements Filter {
+
+	private static final Log log = LogFactory.getLog(GenericFilter.class);
+
+	@Override
+	public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
+			throws IOException, ServletException {
+		HttpServletResponse response = (HttpServletResponse) res;
+		CustomRequest request = new CustomRequest((HttpServletRequest) req);
+		String auth = request.getHeader("Authorization");
+		log.info("Authorization header:" + auth);
+
+		response.setHeader("Access-Control-Allow-Origin", "*");
+		response.setHeader("Access-Control-Allow-Headers", "Authorization,Content-Type,Accept,User-Account");
+
+		if (StringUtils.isEmpty(auth)) {
+			chain.doFilter(request, response);
+			return;
+		}
+
+		JSONObject obj = JWTUtils.getUserInfo(auth);
+		log.info("**Loginin User Details From Token ***********obj:" + obj.toString());
+		try {
+			if (obj != null) {
+
+				if (obj.has("user_account")) {
+					if (obj.getString("user_account") != null) {
+						request.addParameter("userAccount", obj.getString("user_account"));
+					}
+				}
+
+				if (obj.has("company_id")) {
+					if (obj.getString("company_id") != null) {
+						request.addParameter("companyCode", obj.getString("company_id"));
+ 					}
+				}
+			}
+		} catch (Exception e) {
+			if (log.isErrorEnabled()) {
+				log.error("Exception", e);
+			}
+		}
+
+		String domain = request.getHeader("Domain");
+		if (domain != null) {
+			request.addParameter("userDomain", domain);
+		}
+		chain.doFilter(request, response);
+	}
+
+	@Override
+	public void destroy() {
+	}
+
+	@Override
+	public void init(FilterConfig config) throws ServletException {
+	}
+
+	public String getIpAddr(HttpServletRequest request) {
+		String url = request.getRequestURI();
+		log.info("URL: " + url);
+
+		String ip4 = request.getRemoteAddr();
+		log.info("remoteAddr      : " + ip4);
+
+		String ip = request.getHeader("x-forwarded-for");
+		log.info("x-forwarded-for    : " + ip);
+
+		String ip3 = request.getHeader("WL-Proxy-Client-IP");
+		log.info("WL-Proxy-Client-IP : " + ip3);
+
+		if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+			log.info("Unknown IP");
+		}
+		return ip;
+	}
+
+}

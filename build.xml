@@ -1,0 +1,203 @@
+<?xml version="1.0"?>
+<project name="xxx-service" basedir="." default="build"
+ xmlns:artifact="antlib:org.apache.maven.artifact.ant"
+ xmlns:rsel="antlib:org.apache.tools.ant.types.resources.selectors">
+ 
+ <include file="/cvs/ant/maven_macro_388.xml"></include>
+ <property file="../../common_build.properties"/>
+ <property file="build.properties"/>
+
+ <path id="path_lib">
+  <fileset caseSensitive="No" dir="${wls_lib_dir}">
+   <include name="**/*.jar"/>
+  </fileset>
+  <fileset caseSensitive="No" dir="${java_home}">
+   <include name="**/*.jar"/>
+  </fileset>
+  <fileset caseSensitive="No" dir="${app_lib_dir}">
+   <include name="**/*.jar"/>
+  </fileset>
+  <fileset caseSensitive="No" dir="${web_lib_dir}">
+   <include name="**/*.jar"/>
+  </fileset>
+ </path>
+ 
+ <path id="appc_lib">
+  <fileset caseSensitive="No" dir="${admin_lib_dir}">
+   <include name="*${admin_util_jar_name}"/>
+  </fileset>
+  <fileset caseSensitive="No" dir="${wls_lib_dir}">
+   <include name="**/*.jar"/>
+  </fileset>
+  <fileset caseSensitive="No" dir="${app_lib_dir}">
+   <include name="**/*.jar"/>
+  </fileset>
+ </path>
+
+ <path id="compile_lib">
+  <fileset caseSensitive="No" dir="${wls_lib_dir}">
+   <include name="**/*.jar"/>
+  </fileset>
+  <fileset caseSensitive="No" dir="${java_home}">
+   <include name="**/*.jar"/>
+  </fileset>
+  <fileset caseSensitive="No" dir="${app_lib_dir}">
+   <include name="**/*.jar"/>
+  </fileset>
+  <fileset caseSensitive="No" dir="${web_lib_dir}">
+   <include name="**/*.jar"/>
+  </fileset>
+  <fileset caseSensitive="No" dir="${jrpa_lib_dir}">
+   <include name="**/*.jar"/>
+  </fileset>
+  <fileset caseSensitive="No" dir="${jetty_lib_dir}">
+   <include name="**/*.jar"/>
+  </fileset>
+ </path>
+
+ <target name="init">
+  <echo>env: [${env}]</echo>
+  <tstamp>
+   <format property="touch.time" pattern="yyyy/MM/dd HH:mm:ss"/>
+   <format property="curr_timestamp" pattern="yyyyMMdd_HHmmss"/>
+  </tstamp>
+  <echo>${touch.time}</echo>
+ </target>
+
+ <target name="copyvolfiles">
+  <echo>Copying ${vol_dir}/${app_prop_name} To ${remote_vol_host}:${remote_vol_dir}</echo>
+  <scp file="${vol_dir}/${app_prop_name}" todir="${remote_vol_user}@${remote_vol_host}:${remote_vol_dir}" keyfile="${keyFile}" trust="no"/> 
+ </target>
+
+ <target name="cleanup">
+  <delete>
+   <fileset caseSensitive="No" dir="${work_dir}">
+    <include name="**/*"/>
+    <include name="**/*.*"/>
+    <exclude name="application.xml" />
+   </fileset>
+<!--
+   <fileset caseSensitive="No" dir="${classes_dir}">
+    <include name="**/*.class"/>
+    <include name="**/*.xml" />
+    <include name="**/*.properties" />
+    <include name="**/*.sql" />
+    <include name="**/*.txt" />
+    <include name="**/*.old" />
+   </fileset>
+-->
+  </delete>
+  <delete dir="${work_dir}/META-INF"/>
+  <delete dir="${work_dir}/APP-INF"/>
+  <delete dir="${work_dir}/ejb"/>
+  <mkdir dir="${work_dir}"/>
+  <mkdir dir="${web_info_dir}/lib"/>
+ </target>
+
+ <target name="updSrcFromScm" depends="init">
+  <exec executable="${scm_client_dir}/accurev" spawn="false">
+   <arg line="pop -H ${scm_server}:${scm_port}"/>
+   <arg line="-v ${scm_jenkin_name}"/>
+   <arg line="-L ${scm_workspace_dir}"/>
+   <arg line="-O -R ${scm_workspace_dir}"/>
+   <redirector output="${log_dir}/updscmfrmsrc_${pkg}_${curr_timestamp}.log" alwayslog="true"/> 
+  </exec>
+ </target>
+
+ <target name="syncAllSrcFromScm" depends="init">
+  <copy todir="${project_home}/src" verbose="true">
+   <fileset dir="${scm_workspace_dir}/${module_name}/src">
+    <include name="**/*.*"/>
+   </fileset>
+  </copy>
+  <copy todir="${project_home}/version" verbose="true">
+   <fileset dir="${scm_workspace_dir}/${module_name}/version">
+    <include name="**/*.*"/>
+   </fileset>
+  </copy>
+ </target>
+
+ <target name="syncSrcFromScm" depends="init">
+  <scp file="${remote_src_user}@${remote_src_host}:${remote_src_dir}/${pkg}.txt" localTodir="${porting_dir}" keyfile="${keyFile}" verbose="false" trust="true">
+  </scp>
+  <java classname="util.CopyFileFromInputList">
+   <classpath>
+    <pathelement location="${lib_ext_dir}/copyFileFromInputList.jar"/>
+   </classpath>
+   <sysproperty key="verbose" value="true"/>
+   <sysproperty key="prop" value="${project_home}/build.properties"/>
+   <sysproperty key="baseDir" value="${scm_workspace_dir}"/>
+   <sysproperty key="toDir" value="${workspace_dir}"/>
+   <sysproperty key="input" value="${porting_dir}/${pkg}.txt"/>
+  </java>
+ </target>
+
+
+ <target name="copyVersion">
+  <copy todir="${project_home}" overwrite="true" verbose="true">
+   <fileset dir="${version_dir}/${env}">
+    <include name="**/*.*"/>
+   </fileset>
+  </copy>
+ </target>
+
+ <target name="deployToRemoteSvr">
+  <echo>Deploying ${deploy_dir}/${app_binary} --&gt; ${remote_deploy_host}:${remote_deploy_dir}</echo>
+  <scp todir="${remote_deploy_user}@${remote_deploy_host}:${remote_deploy_dir}" keyfile="${keyFile}" verbose="false">
+   <fileset dir="${deploy_dir}">
+    <include name="**/${app_binary}"/>
+   </fileset>
+  </scp>
+ </target>
+ 
+ <target name="updLib">
+  <echo>Updating lib jar to: ${jrpa_lib_dir} </echo>
+  <scp file="${remote_lib_user}@${remote_lib_host}:${remote_lib_dir}/jrpalib/jrpa_util.jar" localTodir="${jrpa_lib_dir}" keyfile="${keyFile}" verbose="false" trust="true">
+  </scp>
+  <scp file="${remote_lib_user}@${remote_lib_host}:${remote_lib_dir}/jrpalib/jrpa_module.jar" localTodir="${jrpa_lib_dir}" keyfile="${keyFile}" verbose="false" trust="true">
+  </scp>
+  <scp file="${remote_lib_user}@${remote_lib_host}:${remote_lib_dir}/jrpaweblib/jrpa_ejbClient.jar" localTodir="${jrpa_lib_dir}" keyfile="${keyFile}" verbose="false" trust="true">
+  </scp>
+ </target>
+
+
+ <target name="mvn-version">
+  <maven basedir="." options="-Denv=${env}" resultproperty="maven.build.result" goal="-version"/>
+ </target>
+ <target name="mvn-clean" depends="mvn-version">
+  <maven basedir="." options="-Denv=${env}" resultproperty="maven.build.result" goal="clean"/>
+ </target>
+ <target name="mvn-validate" depends="mvn-version">
+  <maven basedir="." options="-Denv=${env}" resultproperty="maven.build.result" goal="validate"/>
+ </target>
+ <target name="mvn-compile" depends="mvn-version">
+  <maven basedir="." options="-Denv=${env}" resultproperty="maven.build.result" goal="compile"/>
+ </target>
+ <target name="mvn-test" depends="mvn-version">
+  <maven basedir="." options="-Denv=${env}" resultproperty="maven.build.result" goal="test"/>
+ </target>
+ <target name="mvn-package" depends="mvn-version">
+  <maven basedir="." options="-Denv=${env}" resultproperty="maven.build.result" goal="package"/>
+ </target>
+ <target name="mvn-verify" depends="mvn-version">
+  <maven basedir="." options="-Denv=${env}" resultproperty="maven.build.result" goal="verify"/>
+ </target>
+ <target name="mvn-install" depends="mvn-version">
+  <maven basedir="." options="-Denv=${env}" resultproperty="maven.build.result" goal="install"/>
+ </target>
+ <target name="mvn-deploy" depends="mvn-version">
+  <maven basedir="." options="-Denv=${env}" resultproperty="maven.build.result" goal="deploy"/>
+ </target>
+ <target name="mvn-clean-install" depends="mvn-version">
+  <maven basedir="." options="-Denv=${env}" resultproperty="maven.build.result" goal="clean install"/>
+ </target>
+
+<target name="all" depends="init, build, deploy" />
+<target name="compile" depends="init, mvn-compile" />
+<target name="package" depends="init, mvn-package" />
+<target name="build" depends="init,  mvn-clean-install" />
+<target name="deploy" depends="init, deployToRemoteSvr" />
+<target name="prd" depends="init, package" />
+
+</project>
+ 

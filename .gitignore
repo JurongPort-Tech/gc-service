@@ -1,0 +1,34 @@
+/.settings
+/target
+/logs
+/log
+/.mvn
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/*
+*.bk
+
+### VS Code ###
+.vscode/
+
+### custom
+.DS_Store
+version/
+src/version/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### configuration files
+**/application.properties
+.github/workflows/

@@ -1,0 +1,145 @@
+# .gitlab-ci.yml
+variables:
+  # your pre‑configured token for buildWithParameters?token=…
+  JENKINS_TRIGGER_TOKEN: "gitlab-trigger"
+
+workflow:
+  rules:
+    # skip when commit message includes [ci skip]
+    - if: '$CI_COMMIT_MESSAGE =~ /\[ci skip\]/ || $CI_COMMIT_MESSAGE =~ /\[skip ci\]/'
+      when: never
+    # REMOVED: run on merge_request events - no Jenkins calls during MR creation/updates
+    # - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    # only run on these protected branches (after merge)
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "uat"'
+    # allow manual runs
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    # catch-all rule to allow GitLab pipelines (needed for MR merges)
+    - if: '$CI_COMMIT_BRANCH'
+
+stages:
+  - trigger
+
+trigger_jenkins_build:
+  stage: trigger
+  script:
+    - |
+      echo "===== DEBUG CI VARIABLES ====="
+      echo "CI_PIPELINE_SOURCE:        $CI_PIPELINE_SOURCE"
+      echo "CI_COMMIT_BRANCH:          $CI_COMMIT_BRANCH"
+      echo "CI_COMMIT_REF_NAME:        $CI_COMMIT_REF_NAME"
+      echo "CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+      echo "CI_MERGE_REQUEST_TARGET_BRANCH_NAME: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+      echo "CI_OPEN_MERGE_REQUESTS:    $CI_OPEN_MERGE_REQUESTS"
+      echo "================================"
+
+      # Skip Jenkins call for non-protected branches
+      case "$CI_COMMIT_BRANCH" in
+        main|uat)
+          echo "Protected branch detected: $CI_COMMIT_BRANCH - proceeding with Jenkins call"
+          ;;
+        *)
+          echo "Feature branch detected: $CI_COMMIT_BRANCH - skipping Jenkins call"
+          echo "✅ Pipeline completed successfully (no Jenkins call needed for feature branches)"
+          exit 0
+          ;;
+      esac
+
+      # Determine which branch to tell Jenkins to build
+      if [[ "$CI_PIPELINE_SOURCE" == "merge_request_event" ]]; then
+        echo "MERGE REQUEST DETECTED"
+        if [[ -z "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" ]]; then
+          echo "WARNING: CI_MERGE_REQUEST_SOURCE_BRANCH_NAME empty, falling back to CI_COMMIT_REF_NAME"
+          BRANCH_TO_BUILD="$CI_COMMIT_REF_NAME"
+        else
+          BRANCH_TO_BUILD="$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+        fi
+        echo "→ MR source branch: $BRANCH_TO_BUILD"
+        echo "→ MR target branch: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+
+        # feature branches build into the target env
+        case "$BRANCH_TO_BUILD" in
+          main|uat)
+            ENV_BRANCH="$BRANCH_TO_BUILD"
+            ;;
+          *)
+            ENV_BRANCH="$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+            ;;
+        esac
+      else
+        echo "REGULAR BRANCH PIPELINE"
+        BRANCH_TO_BUILD="$CI_COMMIT_BRANCH"
+        ENV_BRANCH="$CI_COMMIT_BRANCH"
+        echo "→ Building branch: $BRANCH_TO_BUILD"
+      fi
+
+      if [[ -z "$BRANCH_TO_BUILD" ]]; then
+        echo "ERROR: cannot determine branch to build"
+        exit 1
+      fi
+
+      # Map ENV_BRANCH → Jenkins parameters
+      NAMESPACE_UPPER=$(echo "$CI_PROJECT_NAMESPACE" | tr '[:lower:]' '[:upper:]')
+      case "$ENV_BRANCH" in
+        main)
+          BUILD_ENV="prd"
+          STREAM_NAME="${NAMESPACE_UPPER}_PRD"
+          SERVER="Slave1Linux"
+          ;;
+        uat)
+          BUILD_ENV="uat"
+          STREAM_NAME="${NAMESPACE_UPPER}_UAT"
+          SERVER="Slave2Linux"
+          ;;
+        *)
+          echo "Feature branch → defaulting to DEV environment"
+          BUILD_ENV="dev"
+          STREAM_NAME="${NAMESPACE_UPPER}_DEV"
+          SERVER="Slave2Linux"
+          ;;
+      esac
+
+      echo "===== FINAL CONFIG ====="
+      echo "Branch to build: $BRANCH_TO_BUILD"
+      echo "Env branch:      $ENV_BRANCH"
+      echo "BUILD_ENV:       $BUILD_ENV"
+      echo "STREAM_NAME:     $STREAM_NAME"
+      echo "SERVER:          $SERVER"
+      echo "========================"
+
+      # Trigger Jenkins
+      JENKINS_TRIGGER_URL="$JENKINS_URL/view/${CI_PROJECT_NAMESPACE}/job/${CI_PROJECT_NAME}/buildWithParameters"
+      PARAMS="token=${JENKINS_TRIGGER_TOKEN}&moduleName=${CI_PROJECT_NAME}&streamName=${STREAM_NAME}&buildEnv=${BUILD_ENV}&pkgName=${NAMESPACE_UPPER}&NODE=${SERVER}&gitBranch=${BRANCH_TO_BUILD}&gitTag=${CI_COMMIT_TAG}&gitUsername=${GITLAB_USER_ID}"
+      FULL_URL="${JENKINS_TRIGGER_URL}?${PARAMS}"
+
+      echo "Calling Jenkins:"
+      echo "Repository: $CI_PROJECT_PATH"
+      echo "Project Name: $CI_PROJECT_NAME"
+      echo "Namespace/Group: $CI_PROJECT_NAMESPACE"
+      echo "Service Name: ${SERVICE_NAME:-$STREAM_NAME}"
+      echo "Build Environment: $BUILD_ENV"
+      echo "Server: $SERVER"
+      echo "Full URL: $FULL_URL"
+      echo "Jenkins Trigger URL: $JENKINS_TRIGGER_URL"
+      echo "PARAMS: $PARAMS"
+      echo "========================="
+      # Capture body + HTTP code
+      RESPONSE="$(curl -s -w "\n%{http_code}" --user "$JENKINS_USER:$JENKINS_TOKEN" "$FULL_URL")"
+      HTTP_CODE="$(echo "$RESPONSE" | tail -n1)"
+      BODY="$(echo "$RESPONSE" | sed '$d')"
+
+      echo "Jenkins HTTP_CODE=$HTTP_CODE"
+      if [[ -n "$BODY" ]]; then
+        echo "Jenkins response body:"
+        echo "$BODY"
+      fi
+
+      # fail on non‑2xx
+      if (( HTTP_CODE < 200 || HTTP_CODE > 299 )); then
+        echo "ERROR: Jenkins trigger failed (HTTP $HTTP_CODE)"
+        exit 1
+      fi
+
+      echo "✅ Jenkins build triggered successfully!"
+  when: on_success
